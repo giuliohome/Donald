@@ -1,4 +1,13 @@
-# Donald
+# Donald for C#
+
+## Simple proof of concept
+
+This is a fork to extend make the F# project usable from C#
+
+I've adapted a single query function to C# and built a quick console demo
+
+Below you see the original readme.
+
 
 ![NuGet Version](https://img.shields.io/nuget/v/Donald.svg)
 [![Build Status](https://travis-ci.org/pimbrouwers/Donald.svg?branch=master)](https://travis-ci.org/pimbrouwers/Donald)

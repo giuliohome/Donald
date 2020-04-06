@@ -59,11 +59,11 @@ let newCommand sql param (tran : IDbTransaction) =
 let newParam name value =
     { Name = name; Value = value }
 
-let tranQuery sql param map tran =
+let tranQuery sql param (map:System.Func<IDataReader, 'a>) tran =
     use cmd = newCommand sql param tran
     use rd = cmd.ExecuteReader()
-    [ while rd.Read() do
-        yield map rd ]
+    [| while rd.Read() do
+                yield map.Invoke rd |]
 
 let tranQuerySingle sql param map tran =
     use cmd = newCommand sql param tran
@@ -82,7 +82,7 @@ let query sql param map conn =
     use tran = beginTran conn
     let results = tranQuery sql param map tran
     commitTran tran
-    results
+    results |> Array.toSeq
 
 let querySingle sql param map conn =
     use tran = beginTran conn

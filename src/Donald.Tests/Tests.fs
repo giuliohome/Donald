@@ -18,7 +18,7 @@ type Author =
         AuthorId : int
         FullName : string
     }
-    static member fromReader (rd : IDataReader) =
+    static member fromReader (rd : IDataReader)  =
         {
             AuthorId = rd.GetInt32("author_id")
             FullName = rd.GetString("full_name")
@@ -114,8 +114,9 @@ module IntegrationTests =
                      FROM   author
                      WHERE  author_id IN (1,2)"
                      []
-                     Author.fromReader
+                     (Func<IDataReader,Author>(Author.fromReader))
                      conn
+                |> Seq.toList
             
             authors.Length |> should equal 2
 
@@ -132,6 +133,42 @@ module IntegrationTests =
             
             author.IsSome         |> should equal true
             author.Value.AuthorId |> should equal 1
+
+        [<Fact>]
+        member __.``Can do multiple queries`` () =   
+            let realConnStr = "Data Source=E:\giulio-vs-so\Donald\my_test_db.db;Version=3;"
+            use myconn = new SQLiteConnection(realConnStr) :> IDbConnection
+
+            use fs = IO.File.OpenRead("schema.sql")
+            use sr = new StreamReader(fs)
+            let sql = sr.ReadToEnd()
+
+            exec sql [] myconn
+
+            let authors =
+                query 
+                    "SELECT author_id, full_name
+                     FROM   author
+                     WHERE  author_id IN (@one,@two);"
+                     [newParam "one" 1;
+                      newParam "two" 2]
+                     (Func<IDataReader,Author>(Author.fromReader))
+                     myconn
+                |> Seq.toList
+    
+            authors.Length |> should equal 2
+
+            let count = 
+                 scalar
+                    "SELECT count(*)
+                     FROM   author
+                     WHERE  author_id IN (@one,@two)"
+                     [newParam "one" 1;
+                      newParam "two" 2]
+                    Convert.ToInt32
+                    myconn 
+
+            count |> should equal 2
 
         [<Fact>]
         member __.``INSERT author then retrieve to verify`` () =
