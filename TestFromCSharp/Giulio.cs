@@ -29,26 +29,30 @@ namespace TestFromCSharp
             IDbConnection conn
             )
         {
-            using (var cmd = conn.CreateCommand())
+            using (var tran = conn.BeginTransaction())
             {
-                cmd.CommandText = sql;
-                foreach (var dbpar in dbParams.Select(p =>
-                    {
-                        var dbpar = cmd.CreateParameter();
-                        dbpar.ParameterName = p.Name;
-                        dbpar.Value = p.Value;
-                        return dbpar;
-                    }
-                    ))
+                using (var cmd = tran.Connection.CreateCommand())
                 {
-                    cmd.Parameters.Add(dbpar);
-                }
-                using (var DR = cmd.ExecuteReader())
-                {
-                    while (DR.Read())
+                    cmd.CommandText = sql;
+                    foreach (var dbpar in dbParams.Select(p =>
+                        {
+                            var dbpar = cmd.CreateParameter();
+                            dbpar.ParameterName = p.Name;
+                            dbpar.Value = p.Value;
+                            return dbpar;
+                        }
+                        ))
                     {
-                        yield return map(DR);
+                        cmd.Parameters.Add(dbpar);
                     }
+                    using (var DR = cmd.ExecuteReader())
+                    {
+                        while (DR.Read())
+                        {
+                            yield return map(DR);
+                        }
+                    }
+                    tran.Commit();
                 }
             }
         }

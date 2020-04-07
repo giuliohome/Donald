@@ -16,7 +16,7 @@ let createConn (createConnection : DbConnectionFactory) =
     createConnection ()    
     
 let beginTran (conn : IDbConnection) = 
-    if conn.State <> ConnectionState.Open then conn.Open()
+    //if conn.State <> ConnectionState.Open then conn.Open()
     conn.BeginTransaction()
 
 let rollbackTran (tran : IDbTransaction) =
@@ -28,17 +28,18 @@ let rollbackTran (tran : IDbTransaction) =
             reraise() 
 
 let commitTran (tran : IDbTransaction) =
-    try
-        if not(isNull tran) 
-           && not(isNull tran.Connection) then tran.Commit() 
-    with
-        // Is supposed to throw System.InvalidOperationException
-        // when commmited or rolled back already, but most
-        // implementations do not. So in all cases try rolling 
-        // backing in all failure cases
-        | _ -> 
-            rollbackTran tran
-            reraise()
+    tran.Commit()
+    //try
+    //    if not(isNull tran) 
+    //       && not(isNull tran.Connection) then tran.Commit() 
+    //with
+    //    // Is supposed to throw System.InvalidOperationException
+    //    // when commmited or rolled back already, but most
+    //    // implementations do not. So in all cases try rolling 
+    //    // backing in all failure cases
+    //    | _ -> 
+    //        rollbackTran tran
+    //        reraise()
     
 let newCommand sql param (tran : IDbTransaction) =
     let cmd = tran.Connection.CreateCommand()
@@ -56,15 +57,40 @@ let newCommand sql param (tran : IDbTransaction) =
 
     cmd
 
+let newCommandSimple sql param (conn:IDbConnection) =
+    let cmd = conn.CreateCommand()
+    cmd.CommandType <- CommandType.Text
+    cmd.CommandText <- sql
+
+    let createParam param = 
+        let p = cmd.CreateParameter()
+        p.ParameterName <- param.Name
+        p.Value <- param.Value
+        cmd.Parameters.Add(p) |> ignore
+       
+    param |> Seq.iter createParam
+
+    cmd
+
 let newParam name value =
     { Name = name; Value = value }
 
+let tranQuerySimple sql param (map:System.Func<IDataReader, 'a>) conn =
+  seq{
+    use cmd = newCommandSimple sql param conn
+    use rd = cmd.ExecuteReader()
+    // https://github.com/dotnet/fsharp/issues/8897
+    // workaround array or list
+    while rd.Read() do
+                yield map.Invoke rd }
+
 let tranQuery sql param (map:System.Func<IDataReader, 'a>) tran =
+  seq{
     use cmd = newCommand sql param tran
     use rd = cmd.ExecuteReader()
     // https://github.com/dotnet/fsharp/issues/8897
     // workaround array or list
-    seq{ while rd.Read() do
+    while rd.Read() do
                 yield map.Invoke rd }
 
 let tranQuerySingle sql param map tran =
@@ -84,6 +110,11 @@ let query sql param map conn =
     use tran = beginTran conn
     let results = tranQuery sql param map tran
     commitTran tran
+    results // see workaround  |> Array.toSeq
+    // https://github.com/dotnet/fsharp/issues/8897
+
+let querySimple sql param map conn =
+    let results = tranQuerySimple sql param map conn
     results // see workaround  |> Array.toSeq
     // https://github.com/dotnet/fsharp/issues/8897
 
