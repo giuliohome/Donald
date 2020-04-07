@@ -22,20 +22,22 @@ namespace TestFromCSharp
                     FullName = rd.GetString(rd.GetOrdinal("full_name"))
                 };
             }
-    }
+        }
         static void Main(string[] args)
         {
             var realConnStr = @"Data Source=E:\giulio-vs-so\Donald\my_test_db.db;Version=3;";
             using (IDbConnection conn = new SQLiteConnection(realConnStr))
             {
+                conn.Open();
                 var authors =
-                    Donald.query<MyAuthor>(
+                    //Donald. -> Giulio. 
+                    Giulio.query<MyAuthor>(
                             @"SELECT author_id, full_name
                          FROM   author
                          WHERE  author_id IN(@one, @two); ",
-                            new Donald.DbParam[2] {
-                                new Donald.DbParam("@one",1),
-                                new Donald.DbParam("@two",2)
+                            new Giulio.DbParam[2] {
+                                new Giulio.DbParam("@one",1),
+                                new Giulio.DbParam("@two",2)
                             },
                         MyAuthor.FromReader, conn);
                 foreach (MyAuthor author in authors)
