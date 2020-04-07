@@ -78,15 +78,30 @@ let newParam name value =
 let tranQuerySimple sql param (map:System.Func<IDataReader, 'a>) conn =
   seq{
     use cmd = newCommandSimple sql param conn
+    
     use rd = cmd.ExecuteReader()
     // https://github.com/dotnet/fsharp/issues/8897
     // workaround array or list
     while rd.Read() do
                 yield map.Invoke rd }
 
-let tranQuery sql param (map:System.Func<IDataReader, 'a>) tran =
+let tranQuery sql param (map:System.Func<IDataReader, 'a>) (tran : IDbTransaction) =
   seq{
-    use cmd = newCommand sql param tran
+    //use cmd = newCommand sql param tran
+    
+    use cmd = tran.Connection.CreateCommand()
+    cmd.CommandType <- CommandType.Text
+    cmd.CommandText <- sql
+    cmd.Transaction <- tran
+
+    let createParam param = 
+        let p = cmd.CreateParameter()
+        p.ParameterName <- param.Name
+        p.Value <- param.Value
+        cmd.Parameters.Add(p) |> ignore
+       
+    param |> Seq.iter createParam
+
     use rd = cmd.ExecuteReader()
     // https://github.com/dotnet/fsharp/issues/8897
     // workaround array or list
@@ -106,10 +121,30 @@ let tranScalar sql param map tran =
     use cmd = newCommand sql param tran
     map (cmd.ExecuteScalar())
 
-let query sql param map conn =
-    use tran = beginTran conn
-    let results = tranQuery sql param map tran
-    commitTran tran
+let query sql param (map:System.Func<IDataReader, 'a>) (conn : IDbConnection) =
+    use tran = conn.BeginTransaction()
+    let results = //tranQuery sql param map tran
+        seq {
+        use cmd = tran.Connection.CreateCommand()
+        cmd.CommandType <- CommandType.Text
+        cmd.CommandText <- sql
+        cmd.Transaction <- tran
+
+        let createParam param = 
+            let p = cmd.CreateParameter()
+            p.ParameterName <- param.Name
+            p.Value <- param.Value
+            cmd.Parameters.Add(p) |> ignore
+       
+        param |> Seq.iter createParam
+
+        use rd = cmd.ExecuteReader()
+        // https://github.com/dotnet/fsharp/issues/8897
+        // workaround array or list
+        while rd.Read() do
+                    yield map.Invoke rd }
+
+    tran.Commit()
     results // see workaround  |> Array.toSeq
     // https://github.com/dotnet/fsharp/issues/8897
 
