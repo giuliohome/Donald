@@ -2,7 +2,7 @@
 
 ## Simple proof of concept
 
-This is a fork to extend make the F# project usable from C#
+This is a fork to make the F# project usable from C#
 
 I've adapted a single query function to C# and built a quick console demo
 
