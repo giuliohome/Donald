@@ -121,7 +121,7 @@ let tranScalar sql param map tran =
     use cmd = newCommand sql param tran
     map (cmd.ExecuteScalar())
 
-let query sql param (map:System.Func<IDataReader, 'a>) (conn : IDbConnection) =
+let queryIssue8897 sql param (map:System.Func<IDataReader, 'a>) (conn : IDbConnection) =
     //let results = //tranQuery sql param map tran
         seq {
         
@@ -142,11 +142,19 @@ let query sql param (map:System.Func<IDataReader, 'a>) (conn : IDbConnection) =
         use rd = cmd.ExecuteReader()
         // https://github.com/dotnet/fsharp/issues/8897
         // workaround array or list
-        while rd.Read() do
-                    yield map.Invoke rd 
+        yield! 
+            seq {
+                while rd.Read() do
+                        yield map.Invoke rd }
         tran.Commit()            
         }
 
+let query sql param map conn =
+    seq {
+    use tran = beginTran conn
+    yield! tranQuery sql param map tran
+    commitTran tran
+    }
     
     //results // see workaround  |> Array.toSeq
     // https://github.com/dotnet/fsharp/issues/8897
