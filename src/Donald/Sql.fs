@@ -122,30 +122,33 @@ let tranScalar sql param map tran =
     map (cmd.ExecuteScalar())
 
 let query sql param (map:System.Func<IDataReader, 'a>) (conn : IDbConnection) =
-    use tran = conn.BeginTransaction()
-    use cmd = tran.Connection.CreateCommand()
-    cmd.CommandType <- CommandType.Text
-    cmd.CommandText <- sql
-    cmd.Transaction <- tran
-
-    let createParam param = 
-        let p = cmd.CreateParameter()
-        p.ParameterName <- param.Name
-        p.Value <- param.Value
-        cmd.Parameters.Add(p) |> ignore
-
-    param |> Seq.iter createParam
-
-    use rd = cmd.ExecuteReader()
-    let results = //tranQuery sql param map tran
+    //let results = //tranQuery sql param map tran
         seq {
+        
+        use tran = conn.BeginTransaction()
+        use cmd = tran.Connection.CreateCommand()
+        cmd.CommandType <- CommandType.Text
+        cmd.CommandText <- sql
+        cmd.Transaction <- tran
+
+        let createParam param = 
+            let p = cmd.CreateParameter()
+            p.ParameterName <- param.Name
+            p.Value <- param.Value
+            cmd.Parameters.Add(p) |> ignore
+
+        param |> Seq.iter createParam
+
+        use rd = cmd.ExecuteReader()
         // https://github.com/dotnet/fsharp/issues/8897
         // workaround array or list
         while rd.Read() do
-                    yield map.Invoke rd }
+                    yield map.Invoke rd 
+        tran.Commit()            
+        }
 
-    tran.Commit()
-    results // see workaround  |> Array.toSeq
+    
+    //results // see workaround  |> Array.toSeq
     // https://github.com/dotnet/fsharp/issues/8897
 
 let querySimple sql param map conn =
