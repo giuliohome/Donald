@@ -62,8 +62,10 @@ let newParam name value =
 let tranQuery sql param (map:System.Func<IDataReader, 'a>) tran =
     use cmd = newCommand sql param tran
     use rd = cmd.ExecuteReader()
-    [| while rd.Read() do
-                yield map.Invoke rd |]
+    // https://github.com/dotnet/fsharp/issues/8897
+    // workaround array or list
+    seq{ while rd.Read() do
+                yield map.Invoke rd }
 
 let tranQuerySingle sql param map tran =
     use cmd = newCommand sql param tran
@@ -82,7 +84,8 @@ let query sql param map conn =
     use tran = beginTran conn
     let results = tranQuery sql param map tran
     commitTran tran
-    results |> Array.toSeq
+    results // see workaround  |> Array.toSeq
+    // https://github.com/dotnet/fsharp/issues/8897
 
 let querySingle sql param map conn =
     use tran = beginTran conn
