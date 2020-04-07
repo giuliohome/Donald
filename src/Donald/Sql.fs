@@ -153,6 +153,10 @@ let query sql param map conn =
     seq {
     use tran = beginTran conn
     yield! tranQuery sql param map tran
+//Notice that however try/with can't be used with sequence, 
+//so the issue is closed without a perfect solution 
+//(a true transactional and lazy wrapper can't be really written in pure functional style), 
+//but only on the bona fide assumption that you wouldn't fix it anyway.
     commitTran tran
     }
     
